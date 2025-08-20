@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Text Extractor</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <style>
+        .upload-area {
+            border: 2px dashed var(--bs-border-color);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.3s ease;
+            background-color: var(--bs-body-bg);
+        }
+        
+        .upload-area:hover {
+            border-color: var(--bs-primary);
+        }
+        
+        .upload-area.dragover {
+            border-color: var(--bs-primary);
+            background-color: var(--bs-primary-bg-subtle);
+        }
+        
+        .text-output {
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            background-color: var(--bs-secondary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.375rem;
+            padding: 1rem;
+        }
+        
+        .file-info {
+            font-size: 0.9rem;
+            color: var(--bs-secondary-color);
+        }
+        
+        .main-header {
+            background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-info) 100%);
+            color: white;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <!-- Header -->
+        <div class="main-header text-center py-4 px-3">
+            <h1 class="display-6 fw-bold mb-2">PDF Text Extractor</h1>
+            <p class="mb-0">Upload a PDF document and get instant text extraction</p>
+        </div>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else ('warning' if category == 'warning' else 'success') }} alert-dismissible fade show" role="alert">
+                        <strong>
+                            {% if category == 'error' %}⚠️ Error: {% elif category == 'warning' %}⚠️ Warning: {% else %}✅ Success: {% endif %}
+                        </strong>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Upload Section -->
+        <div class="row">
+            <div class="col-lg-6 mx-auto">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">📁 Upload PDF Document</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" enctype="multipart/form-data" id="uploadForm">
+                            <div class="upload-area mb-3" id="uploadArea">
+                                <div class="mb-3">
+                                    <i class="bi bi-file-earmark-pdf" style="font-size: 3rem; color: var(--bs-primary);"></i>
+                                    <p class="mb-2"><strong>Drag and drop your PDF here</strong></p>
+                                    <p class="text-muted small">or click to browse files</p>
+                                </div>
+                                <input type="file" 
+                                       class="form-control" 
+                                       id="pdf_file" 
+                                       name="pdf_file" 
+                                       accept=".pdf" 
+                                       required>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    📤 Extract Text
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="mt-3 text-center file-info">
+                            <small>
+                                <strong>Supported:</strong> PDF files up to 16MB<br>
+                                <strong>Processing:</strong> Instant, no data is stored
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        {% if extracted_text %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">📄 Extracted Text</h5>
+                        {% if filename %}
+                        <span class="badge bg-secondary">{{ filename }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        {% if extracted_text.strip() %}
+                        <div class="mb-3">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="copyToClipboard()">
+                                📋 Copy Text
+                            </button>
+                            <span class="ms-2 text-muted small">{{ extracted_text.split('\n')|length }} lines, {{ extracted_text|length }} characters</span>
+                        </div>
+                        <div class="text-output" id="extractedText">{{ extracted_text }}</div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <strong>No text found</strong><br>
+                            This PDF might contain only images or the text might not be extractable.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Footer -->
+        <footer class="mt-5 pt-4 border-top text-center">
+            <p class="text-muted small">
+                <strong>Privacy Notice:</strong> Your files are processed in-memory only. No data is stored on our servers.
+            </p>
+        </footer>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // File drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('pdf_file');
+        
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        // Highlight drop area when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.add('dragover');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.remove('dragover');
+            }, false);
+        });
+        
+        // Handle dropped files
+        uploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateFileDisplay();
+            }
+        }, false);
+        
+        // Handle click to browse
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Update display when file is selected
+        fileInput.addEventListener('change', updateFileDisplay);
+        
+        function updateFileDisplay() {
+            const file = fileInput.files[0];
+            if (file) {
+                const uploadText = uploadArea.querySelector('p');
+                uploadText.innerHTML = `<strong>Selected:</strong> ${file.name}<br><small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>`;
+            }
+        }
+        
+        // Copy to clipboard functionality
+        function copyToClipboard() {
+            const text = document.getElementById('extractedText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                // Show temporary success message
+                const button = event.target;
+                const originalText = button.innerHTML;
+                button.innerHTML = '✅ Copied!';
+                button.classList.add('btn-success');
+                button.classList.remove('btn-outline-secondary');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-outline-secondary');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        }
+        
+        // Auto-dismiss alerts
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                if (alert.querySelector('.btn-close')) {
+                    const alertInstance = new bootstrap.Alert(alert);
+                    setTimeout(() => alertInstance.close(), 5000);
+                }
+            });
+        }, 100);
+    </script>
+</body>
+</html>
