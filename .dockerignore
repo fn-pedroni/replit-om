@@ -1,0 +1,47 @@
+# Git and version control
+.git/
+.gitignore
+
+# Replit specific files
+.replit
+.replit.lock
+.replit.nix
+replit.nix
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation
+*.md
+README*
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
